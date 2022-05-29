@@ -1,0 +1,198 @@
+---
+title: "Tarea 3"
+author: "Dafne Jaime Vargas"
+date: "03-06-2022"
+output: 
+  html_document:
+    theme: "journal"
+---
+
+![](https://www.uahurtado.cl//wp-images/uploads/2017/03/logo_uah.jpg) 
+
+#### Universidad Alberto Hurtado
+#### Carrera: Sociología/Ciencias Políticas
+#### Profesora: Valentina Andrade de la Horra
+#### Ayudantes: Nicolás Godoy Marquéz  y Dafne Jaime Vargas
+#### Estudiante:
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r paquetes}
+pacman::p_load(tidyverse,
+               sjmisc, 
+               sjPlot,
+               knitr,
+               kableExtra,
+               srvyr) #para pesos muestrales
+```
+
+```{r datos}
+data = readRDS("../output/data/enut.rds")
+```
+
+
+```{r explorar}
+names(data)
+```
+
+
+```{r objeto_encuesta}
+objeto_encuesta <- data %>% 
+  as_survey_design(ids = id, #el identificador
+                   strata = varstrat,#los estratos estimados según varstrat
+                   weights = exp) # el ponderador con exp
+```
+
+
+# Tablas 
+
+## univariado
+```{r}
+objeto_encuesta %>% 
+  group_by(sexo)%>% 
+  summarise(porcentaje = survey_mean(vartype = "ci", na.rm = T))%>% 
+  mutate(porcentaje = porcentaje*100,
+         porcentaje_low = porcentaje_low*100,
+         porcentaje_upp = porcentaje_upp*100) %>% 
+  kable(caption = "Distribución de sexo y quintil", #Definimos título
+      format = "html", #Especificamos que el output se muestre en HTML
+      col.names = c("Variable", #Definimos los nombres de las columnas
+                    "Prc %",
+                    "Prc % límite inferior",
+                    "Prc % límite superior"),
+      position = "center") %>% #Especificamos que la tabla se muestre al centro
+  kable_classic(full_width = F, #Especificamos que el ancho de la tabla no se ajuste al de la página
+                html_font = "Cambria") %>% #Definimos fuente
+  footnote("Elaboración propia en base a ENUT (2015)", #Especificamos la nota al pie
+           general_title = "Fuente: ") #Personalizamos nota al pie
+```
+
+
+## bivariado
+
+```{r}
+objeto_encuesta %>% 
+  group_by(sexo) %>% 
+  summarise(porcentaje = survey_total(traslado, vartype = "ci", na.rm = T))%>% 
+  mutate(porcentaje = porcentaje*100,
+         porcentaje_low = porcentaje_low*100,
+         porcentaje_upp = porcentaje_upp*100) %>% 
+  kable(caption = "Distribución de sexo y quintil", #Definimos título
+        format = "html", #Especificamos que el output se muestre en HTML
+        col.names = c("Variable", #Definimos los nombres de las columnas
+                      "Prc %",
+                      "Prc % límite inferior",
+                      "Prc % límite superior"),
+        position = "center") %>% #Especificamos que la tabla se muestre al centro
+  kable_classic(full_width = F, #Especificamos que el ancho de la tabla no se ajuste al de la página
+                html_font = "Cambria") %>% #Definimos fuente
+  footnote("Elaboración propia en base a ENUT (2015)", #Especificamos la nota al pie
+           general_title = "Fuente: ") #Personalizamos nota al pie
+
+```
+
+
+## asignación a objeto
+
+```{r}
+tabla1 <- objeto_encuesta %>% 
+  group_by(sexo)%>% 
+  summarise(porcentaje = survey_mean(vartype = "ci", na.rm = T))%>% 
+  mutate(porcentaje = porcentaje*100,
+         porcentaje_low = porcentaje_low*100,
+         porcentaje_upp = porcentaje_upp*100) 
+```
+
+
+```{r}
+tabla2 <- objeto_encuesta %>% 
+  group_by(sexo) %>% 
+  summarise(porcentaje = survey_total(traslado, vartype = "ci", na.rm = T))%>% 
+  mutate(porcentaje = porcentaje*100,
+         porcentaje_low = porcentaje_low*100,
+         porcentaje_upp = porcentaje_upp*100) 
+```
+
+
+# Con sjPlot 
+
+## univariado
+
+```{r}
+tab_df(tabla1,
+       title = 'Tabla 1. Distribución de Sexo',
+       footnote = 'Elaboración propia en base a ENUT (2015)',
+       show.footnote = T,
+       encoding = 'latin9')
+```
+
+
+## bivariado
+
+```{r}
+tab_df(tabla2,
+       title = 'Tabla 2. Distribución horas de traslado según sexo',
+       footnote = 'Elaboración propia en base a ENUT (2015)',
+       show.footnote = T,
+       encoding = 'latin9')
+```
+
+
+# Gráficos con sjPlot 
+
+## univariado
+
+```{r}
+plot_frq(objeto_encuesta$variables$quintil,
+         type = c("bar"), 
+         title = "Gráfico de: Distribución de quintiles", 
+         show.ci = T, 
+         coord.flip = T, 
+         geom.colors = "violet", 
+         weight.by = objeto_encuesta$variables$exp) + 
+  theme_classic() #Modificamos el tema
+```
+
+
+## bivariado
+
+```{r}
+plot_xtab(objeto_encuesta$variables$quintil, objeto_encuesta$variables$sexo, 
+          margin = "row", 
+          bar.pos = "stack",
+          title = "Gráfico de: Distribución de quintiles según sexo", 
+          coord.flip = F, 
+          weight.by = objeto_encuesta$variables$exp)
+```
+
+
+
+## Tablas de contingencia 
+```{r}
+sjt.xtab(objeto_encuesta$variables$sexo, objeto_encuesta$variables$sat_eq,
+         show.col.prc=TRUE,
+         show.summary=F, 
+         title = "Tabla de contingencia:
+sexo y satisfacción con equilibrio trabajo-familia",
+         encoding = "UTF-8",
+         weight.by = objeto_encuesta$variables$exp)
+```
+
+
+# Tabla de frecuencias para Likert 
+
+```{r}
+tab_stackfrq(as.data.frame(objeto_encuesta %>% select(starts_with("sat_"))),
+             show.n = TRUE, 
+             show.total = T,
+             title = "Niveles de satisfacción con el uso del tiempo",  
+             weight.by = objeto_encuesta$variables$exp)
+```
+
+
+
+
+
